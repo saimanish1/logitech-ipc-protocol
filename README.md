@@ -103,3 +103,13 @@ Read: response byte 4 = feature index
 | Logi Options+ 2.0.840907 | Working (macOS Tahoe, Windows 11) |
 
 The wire protocol and core API paths (`/devices/list`, `/change_host/<id>/host`) have been stable. Device re-pairing broke HID paths and collection numbers but the IPC protocol itself was unaffected.
+
+## Disclaimer
+
+This project is for **educational and research purposes only**. It documents an undocumented, unsupported protocol that Logitech can change or remove at any time. The authors are not responsible for any damage, data loss, bricked devices, or broken functionality resulting from use of this code or documentation. Use at your own risk.
+
+This project is not affiliated with or endorsed by Logitech.
+
+## License
+
+[MIT](LICENSE)
