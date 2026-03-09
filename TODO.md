@@ -12,6 +12,8 @@
 
 ## Windows Side
 
+- [x] Confirmed same wire protocol works on Windows via named pipe
+- [x] Dynamic IRoot::GetFeature query instead of hardcoded feature index fallback
 - [ ] Auto-detect HID device paths from the Logi Options+ agent instead of hardcoding in config.ini
   - Agent's `/devices/list` returns full HID path, connection type, device type, host channel
   - Agent listens on named pipe `\\.\pipe\logitech_kiros_agent-<hash>`
