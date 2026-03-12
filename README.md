@@ -15,6 +15,7 @@ macOS blocks raw HID access to Bluetooth input devices at the kernel level. No p
 | `logi-options-ipc-reverse-engineering.md` | Full reverse engineering chronicle |
 | `software-kvm-setup.md` | Two-way software KVM setup guide (Windows + Mac) |
 | `switch_to_windows.py` | Mac-side script that switches Logitech devices and monitor input via Unix socket IPC |
+| `api-reference.md` | Agent API reference: working endpoints, protobuf types, device capabilities |
 | `kvm_daemon_windows.py` | Windows KVM daemon: hotkey listener, device switching via named pipe, monitor switching via DDC/CI |
 | `kvm_config.ini` | Windows daemon configuration (hotkeys, monitor inputs) |
 | `query_feature_index.py` | Discovers HID++ ChangeHost feature index for Logitech devices (Windows) |
