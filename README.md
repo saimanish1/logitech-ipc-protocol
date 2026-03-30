@@ -16,8 +16,9 @@ macOS blocks raw HID access to Bluetooth input devices at the kernel level. No p
 | `software-kvm-setup.md` | Two-way software KVM setup guide (Windows + Mac) |
 | `switch_to_windows.py` | Mac-side script that switches Logitech devices and monitor input via Unix socket IPC |
 | `api-reference.md` | Agent API reference: working endpoints, protobuf types, device capabilities |
-| `kvm_daemon_windows.py` | Windows KVM daemon: hotkey listener, device switching via named pipe, monitor switching via DDC/CI |
-| `kvm_config.ini` | Windows daemon configuration (hotkeys, monitor inputs) |
+| `kvm.ahk` | AutoHotkey v2 script: Win+1/2/3 hotkeys that call `kvm_daemon_windows.py --switch` (runs in system tray) |
+| `kvm_daemon_windows.py` | Windows device switching via named pipe, monitor switching via DDC/CI |
+| `kvm_config.ini` | Windows configuration (hotkeys, monitor inputs) |
 | `query_feature_index.py` | Discovers HID++ ChangeHost feature index for Logitech devices (Windows) |
 | `query_agent_windows.py` | Queries the agent on Windows via named pipe |
 | `config.ini` | Legacy UnifiedSwitch configuration (superseded by `kvm_daemon_windows.py`) |
@@ -37,19 +38,20 @@ Requires Logi Options+ running and `m1ddc` installed (`brew install m1ddc`).
 ### Windows
 
 ```powershell
-# Persistent daemon with Win+1/2/3 hotkeys (run as Administrator)
-python kvm_daemon_windows.py
+# Start the AHK hotkey listener (runs in system tray, no console)
+# Requires AutoHotkey v2: winget install AutoHotkey.AutoHotkey
+start kvm.ahk
 
-# One-shot switch to host 1
+# Or switch directly from the command line
 python kvm_daemon_windows.py --switch 1
 
 # Show discovered devices and configured hotkeys without switching
 python kvm_daemon_windows.py --dry-run
 ```
 
-Requires Logi Options+ running. Install dependencies: `pip install keyboard pywin32`.
+Requires Logi Options+ running. Install dependencies: `pip install pywin32`.
 
-The daemon discovers devices from the agent automatically (no hardcoded device IDs or HID paths). Edit `kvm_config.ini` to configure hotkeys and monitor DDC/CI input values.
+The AHK script listens for Win+1/2/3 and calls `kvm_daemon_windows.py --switch N` for each. The Python script discovers devices from the agent automatically (no hardcoded device IDs or HID paths). Edit `kvm_config.ini` to configure hotkeys and monitor DDC/CI input values.
 
 ## Protocol
 

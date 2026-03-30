@@ -41,9 +41,13 @@ Investigated native coupled Easy-Switch -- the agent's built-in feature for link
 - [x] ~~Find protobuf types~~ -- `CoupledSwitchCompatibleDevices` (toggle, devices), `LinkDeviceInfo` (follow_device_id, lead_serial_number), `FollowDeviceCookieInfo` (coupled_switch_capable, lead_hashed_serial_number)
 - [x] ~~Test the endpoints~~ -- All return NO_SUCH_PATH. Routes only register when device capabilities have `leadCoupledEasySwitch: true` (keyboard) or `followCoupledEasySwitch: true` (mouse). MX Keys S and MX Master 3S both have these set to `false`.
 - [x] ~~Check if it can be enabled~~ -- No. This is a firmware/depot capability, not user-configurable.
+- [x] ~~Listen for Easy-Switch events on the agent pipe~~ -- Passive listener receives no events when the button is pressed. The agent does not broadcast Easy-Switch events to connected clients.
+- [x] ~~Detect Easy-Switch via AutoHotkey keyboard hook~~ -- The Easy-Switch button does not send a standard keyboard scancode. It's a HID++ command handled entirely by the Logitech firmware/receiver, invisible to the OS keyboard input stack.
 - [ ] Test on newer devices that might support it (MX Keys S Combo, future products)
 
-The `kvm_daemon_windows.py` software approach (daemon-based coupled switching via hotkeys) is the workaround for devices that lack native support.
+**Conclusion:** Easy-Switch button presses cannot be detected through the agent IPC or OS keyboard hooks. The only way is at the HID level via HID++ through the Bolt receiver.
+
+The `kvm.ahk` + `kvm_daemon_windows.py --switch` approach (AHK hotkeys calling one-shot Python switching) is the workaround for devices that lack native coupled support.
 
 ## Packaging
 
