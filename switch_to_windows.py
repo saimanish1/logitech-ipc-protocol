@@ -20,12 +20,8 @@ See logi-options-ipc-reverse-engineering.md for protocol details.
 import socket, struct, json, subprocess, sys, glob
 
 # --- Configuration ---
-# Update these to match your setup.
-# Device IDs: query via GET /devices/list to find yours.
-DEVICES = {
-    'dev00000001': 'Keyboard',
-    'dev00000000': 'Mouse',
-}
+# Device IDs are NOT hardcoded: they shift when devices are re-paired.
+# They are discovered at runtime from GET /devices/list (see discover_devices).
 HOST_NAMES = {0: 'Windows', 1: 'Mac', 2: 'iPad'}
 # DDC/CI input source values per host. Find yours with ControlMyMonitor or m1ddc.
 MONITOR_INPUTS = {0: 15, 1: 18}  # host 0 -> DisplayPort (15), host 1 -> HDMI-2 (18)
@@ -116,6 +112,23 @@ def connect_agent():
     recv_all(s)
     return s
 
+def discover_devices(s):
+    # Auto-discover connected, switchable devices (keyboards and mice).
+    # Device IDs shift after re-pairing, so never hardcode them.
+    send_json(s, {'msg_id': '2', 'verb': 'GET', 'path': '/devices/list'})
+    data = recv_all(s, timeout=3)
+    devices = {}
+    for r in parse_responses(data):
+        if not isinstance(r, dict):
+            continue
+        for d in r.get('payload', {}).get('deviceInfos', []):
+            if d.get('deviceType') not in ('KEYBOARD', 'MOUSE'):
+                continue
+            if not d.get('connected', False):
+                continue
+            devices[d['id']] = d.get('displayName', d['id'])
+    return devices
+
 def dry_run(target_host=0):
     s = connect_agent()
     if not s:
@@ -127,7 +140,13 @@ def dry_run(target_host=0):
     print(f'[dry-run] Monitor would switch to input {monitor_input}')
     print()
 
-    for i, (dev_id, name) in enumerate(DEVICES.items()):
+    devices = discover_devices(s)
+    if not devices:
+        print('ERROR: no connected switchable devices found')
+        s.close()
+        return False
+
+    for i, (dev_id, name) in enumerate(devices.items()):
         current = get_current_host(s, str(10 + i), dev_id)
         if current is None:
             print(f'  {name} ({dev_id}): unreachable')
@@ -144,7 +163,13 @@ def switch_devices(target_host=0):
     if not s:
         return False
 
-    for i, (dev_id, name) in enumerate(DEVICES.items()):
+    devices = discover_devices(s)
+    if not devices:
+        print('ERROR: no connected switchable devices found')
+        s.close()
+        return False
+
+    for i, (dev_id, name) in enumerate(devices.items()):
         code = switch_device(s, str(10 + i), dev_id, target_host)
         if code == 'SUCCESS':
             print(f'{name}: switched')
