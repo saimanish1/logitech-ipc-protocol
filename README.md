@@ -154,6 +154,7 @@ Read: response byte 4 = feature index
 | Version | Status |
 |---------|--------|
 | Logi Options+ 2.0.840907 | Working (macOS Tahoe, Windows 11) |
+| Logi Options+ 2.6.944893 | Working; coupled Easy-Switch routes live — Enhanced Easy-Switch shipped (see api-reference.md) |
 
 The wire protocol and core API paths (`/devices/list`, `/change_host/<id>/host`) have been stable. Device re-pairing broke HID paths and collection numbers but the IPC protocol itself was unaffected.
 

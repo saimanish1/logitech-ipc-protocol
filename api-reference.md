@@ -96,31 +96,50 @@ The `slotPrefix` comes from each device's entry in `/devices/list`.
 }
 ```
 
-## Coupled Easy-Switch
+## Coupled Easy-Switch (Enhanced Easy-Switch)
 
 The agent has built-in support for linking keyboard + mouse so they switch hosts together from the physical Easy-Switch button.
 
-### API paths (5 found)
+**This shipped as an official Logitech feature ("Enhanced Easy-Switch")** after the initial investigation concluded it was impossible:
 
-| Path | Description |
-|------|-------------|
-| `/coupled_easy_switch/<id>/compatible_devices` | List compatible devices for coupling |
-| `/coupled_easy_switch/<id>/coupled_switch_link_device` | Link a follower device |
-| `/coupled_easy_switch/<id>/follow_cookies` | Cookie/capability info |
-| `/coupled_easy_switch/<id>/follow_change_host` | Follow host change |
-| `/coupled_easy_switch/<id>/add_pending_device` | Add pending device for coupling |
+- MX Keys S firmware **81.2.17** (Apr 2026): "prepares your keyboard for the upcoming Enhanced Easy-Switch feature"
+- Logi Options+ **v2.3+** (end Apr 2026) unlocks it; verified working on v2.6.944893
+- After the one-time link, pressing the keyboard's Easy-Switch key moves keyboard AND follower devices together, natively (keyboard-initiated only; return-sync needs Options+ running on the host you're returning from)
+
+### What changed vs the initial findings
+
+The capability gate flipped: both devices now report the required flags once firmware/Options+ are current.
+
+| Device | Role | Capability flag | Status |
+|--------|------|-----------------|--------|
+| MX Keys S | lead | `leadCoupledEasySwitch: true` | live |
+| MX Master 3S | follow | `followCoupledEasySwitch: true` | live |
+
+### API paths and scoping (verified live)
+
+Route registration is asymmetric — check which side of the link each path expects:
+
+| Path | Side | Verb | Notes |
+|------|------|------|-------|
+| `/coupled_easy_switch/<lead_id>/compatible_devices` | lead | GET | **Requires a payload** (empty `{}` works) — payload-less GETs return `INVALID_ARG` |
+| `/coupled_easy_switch/<follower_id>/follow_cookies` | follower | GET | Link state: `{link, coupledSwitchCapable, leadHashedSerialNumber}` |
+| `/coupled_easy_switch/<follower_id>/follow_change_host` | follower | SET | Payload type: `logi.protocol.devices.FollowChangeHost` |
+| `/coupled_easy_switch/<follower_id>/coupled_switch_link_device` | follower | SET | Payload: `LinkDeviceInfo {link, follow_device_id, lead_serial_number}` |
+| `/coupled_easy_switch/add_pending_device` | global | — | **No device id in path** (the `/<id>/add_pending_device` form returns `NO_SUCH_PATH`); route not registered in current build |
+
+Protobuf namespace: `logi.protocol.coupled_easy_switch_assist` (see `coupled_easy_switch_assist.proto` in the agent binary).
 
 ### Protobuf types
 
-- `CoupledSwitchCompatibleDevices` -- toggle, devices list
-- `LinkDeviceInfo` -- follow_device_id, lead_serial_number
-- `FollowDeviceCookieInfo` -- coupled_switch_capable, lead_hashed_serial_number
+- `CoupledSwitchCompatibleDevices` -- toggle, lead_need_fw_update, devices[] {device_id, device_serial_number, linked, need_fw_update}, lead_serial_number
+- `LinkDeviceInfo` -- link, follow_device_id, lead_serial_number
+- `FollowDeviceCookieInfo` -- link, coupled_switch_capable, lead_hashed_serial_number
 
-### Current status: NOT POSSIBLE on tested hardware
+### Firmware gate on linking
 
-All 5 paths return `NO_SUCH_PATH`. The routes only register when device capabilities include `leadCoupledEasySwitch: true` (keyboard) or `followCoupledEasySwitch: true` (mouse). Both MX Keys S and MX Master 3S have these set to `false`.
+While devices report `need_fw_update` (lead or follower), SET link attempts return SUCCESS and echo the `LinkDeviceInfo` payload, but the link does not take effect -- `follow_cookies` keeps returning `link: false`. After updating firmware and linking once (via the Options+ UI Easy-Switch tab or the SET endpoints), `follow_cookies` flips to `link: true` and physical Easy-Switch moves both devices in both directions.
 
-This is a firmware/depot capability, not user-configurable. The handler also explicitly checks device type (keyboard-only for lead role).
+Verified live: MX Keys S FW 81.2.17 (lead) linked to MX Master 3S FW 22.2.9 (follower) on Logi Options+ 2.6.944893.
 
 ## Other named pipes
 

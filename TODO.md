@@ -39,21 +39,22 @@
 
 ## Coupled Easy-Switch
 
-**Status: NOT POSSIBLE on current hardware.**
+**Status: SHIPPED — now an official Logitech feature ("Enhanced Easy-Switch").**
 
-Investigated native coupled Easy-Switch -- the agent's built-in feature for linking keyboard + mouse so they switch hosts together from the physical Easy-Switch button.
+The original conclusion ("NOT POSSIBLE on current hardware") was correct at investigation time (Feb 2026) — the capability didn't exist yet. Logitech shipped it:
 
-- [x] ~~Find coupled Easy-Switch API paths~~ -- Found 5 paths: `/coupled_easy_switch/<id>/compatible_devices`, `coupled_switch_link_device`, `follow_cookies`, `follow_change_host`, `add_pending_device`
-- [x] ~~Find protobuf types~~ -- `CoupledSwitchCompatibleDevices` (toggle, devices), `LinkDeviceInfo` (follow_device_id, lead_serial_number), `FollowDeviceCookieInfo` (coupled_switch_capable, lead_hashed_serial_number)
-- [x] ~~Test the endpoints~~ -- All return NO_SUCH_PATH. Routes only register when device capabilities have `leadCoupledEasySwitch: true` (keyboard) or `followCoupledEasySwitch: true` (mouse). MX Keys S and MX Master 3S both have these set to `false`.
-- [x] ~~Check if it can be enabled~~ -- No. This is a firmware/depot capability, not user-configurable.
+- MX Keys S firmware **81.2.17** (Apr 2026) — explicitly "prepares the keyboard for Enhanced Easy-Switch"
+- Logi Options+ **v2.3+** (Apr 2026) unlocks the feature; verified live on v2.6.944893
+
+- [x] ~~Find coupled Easy-Switch API paths~~ -- 5 paths found; corrected scoping: `compatible_devices` is lead-side (GET needs a payload), `follow_cookies`/`follow_change_host`/`coupled_switch_link_device` are follower-side, `add_pending_device` is global (no device id). See `api-reference.md`.
+- [x] ~~Check if it can be enabled~~ -- Yes. Capability flags (`leadCoupledEasySwitch`, `followCoupledEasySwitch`) flipped to `true` with the firmware/Options+ rollout.
+- [x] ~~Link devices~~ -- MX Keys S (81.2.17, lead) linked to MX Master 3S (22.2.9, follower). `follow_cookies` returns `link: true`; physical Easy-Switch moves both devices in both directions natively.
+- [x] ~~Firmware gate documented~~ -- while `needFwUpdate` is true, SET link returns SUCCESS echoes but does not stick (see api-reference.md).
 - [x] ~~Listen for Easy-Switch events on the agent pipe~~ -- Passive listener receives no events when the button is pressed. The agent does not broadcast Easy-Switch events to connected clients.
 - [x] ~~Detect Easy-Switch via AutoHotkey keyboard hook~~ -- The Easy-Switch button does not send a standard keyboard scancode. It's a HID++ command handled entirely by the Logitech firmware/receiver, invisible to the OS keyboard input stack.
-- [ ] Test on newer devices that might support it (MX Keys S Combo, future products)
+- [ ] Test `add_pending_device` global path once a registration/flow triggers it
 
-**Conclusion:** Easy-Switch button presses cannot be detected through the agent IPC or OS keyboard hooks. The only way is at the HID level via HID++ through the Bolt receiver.
-
-The `kvm.ahk` + `kvm_daemon_windows.py --switch` approach (AHK hotkeys calling one-shot Python switching) is the workaround for devices that lack native coupled support.
+**Side effect:** with native coupled switching live, the hotkey daemons are no longer needed for device switching. `kvm_monitor_daemon.py` completes the loop by moving the monitor (DDC/CI) whenever the lead keyboard leaves/arrives — one physical key now moves keyboard, mouse, and monitor.
 
 ## Packaging
 
