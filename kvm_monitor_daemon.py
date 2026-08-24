@@ -152,23 +152,34 @@ def main():
                     help="monitor input when keyboard is on this Mac (default 17 = HDMI-1)")
     ap.add_argument("--away-input", type=int, default=15,
                     help="monitor input when keyboard left (default 15 = DisplayPort)")
-    ap.add_argument("--poll", type=float, default=2.0, help="poll interval seconds")
+    ap.add_argument("--poll", type=float, default=1.0, help="poll interval seconds")
     ap.add_argument("--debounce", type=int, default=2,
                     help="consecutive polls required to confirm a state change")
-    ap.add_argument("--settle", type=float, default=6.0,
-                    help="seconds to wait after a confirmed change before switching "
-                         "(host switches make the keyboard flap; state is re-verified)")
+    ap.add_argument("--cooldown", type=float, default=8.0,
+                    help="seconds after a switch during which further changes are "
+                         "deferred and re-verified (absorbs keyboard flapping)")
     ap.add_argument("--m1ddc", default="/opt/homebrew/bin/m1ddc")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
+    def fire(here, name):
+        if here:
+            log.info("%s returned -> Mac", name)
+            set_monitor(args.m1ddc, args.here_input, args.dry_run)
+        else:
+            log.info("%s left -> away host", name)
+            set_monitor(args.m1ddc, args.away_input, args.dry_run)
+
     agent = Agent()
-    state = None            # None=unknown, True=keyboard here, False=away
+    state = None            # debounced presence: True=keyboard here, False=away
     pending = None          # candidate new state during debounce
     pending_count = 0
+    last_fired = None       # state the monitor was last set to
+    cooldown_until = 0.0    # monitor locked until this time
+    deferred = None         # confirmed change waiting for the lock to expire
 
-    log.info("watching for lead keyboard (poll %.1fs, debounce %d, %s)",
-             args.poll, args.debounce, "DRY RUN" if args.dry_run else "live")
+    log.info("watching for lead keyboard (poll %.1fs, cooldown %.0fs, %s)",
+             args.poll, args.cooldown, "DRY RUN" if args.dry_run else "live")
     while True:
         try:
             res = lead_keyboard_present(agent)
@@ -181,9 +192,10 @@ def main():
             time.sleep(args.poll)
             continue
         here, name = res
+        now = time.time()
 
-        if state is None:  # first reading: adopt without switching
-            state = here
+        if state is None:  # first reading: adopt, assume monitor already matches
+            state = last_fired = here
             log.info("initial state: %s (%s)", "keyboard HERE" if here else "keyboard AWAY", name)
         elif here == state:
             pending, pending_count = None, 0
@@ -193,29 +205,27 @@ def main():
             else:
                 pending_count += 1
             if pending_count >= args.debounce:
-                pending, pending_count = None, 0
-                # Settle: host switches make the keyboard flap while BLE and
-                # the agent re-associate. Firing m1ddc during a flap drops
-                # commands on slow monitors (AW3225QF observed). Wait, then
-                # re-verify before touching the monitor.
-                log.info("state change (now %s) — settling %.0fs before switching",
-                         "HERE" if here else "AWAY", args.settle)
-                time.sleep(args.settle)
-                try:
-                    res2 = lead_keyboard_present(agent)
-                except ConnectionError as e:
-                    log.warning("agent unreachable during settle: %s", e)
-                    continue
-                if res2 is None or res2[0] != here:
-                    log.info("state flapped during settle — ignored, no monitor change")
-                    continue
                 state = here
-                if here:
-                    log.info("%s returned -> Mac", res2[1])
-                    set_monitor(args.m1ddc, args.here_input, args.dry_run)
+                pending, pending_count = None, 0
+                if here == last_fired:
+                    deferred = None        # settled back to what monitor shows
+                elif now >= cooldown_until:
+                    fire(here, name)       # fast path: switch immediately
+                    last_fired = here
+                    cooldown_until = now + args.cooldown
+                    deferred = None
                 else:
-                    log.info("%s left -> away host", res2[1])
-                    set_monitor(args.m1ddc, args.away_input, args.dry_run)
+                    log.info("change to %s during cooldown — deferred",
+                             "HERE" if here else "AWAY")
+                    deferred = here
+
+        # deferred re-fire once the monitor is free and state still matches
+        if deferred is not None and now >= cooldown_until:
+            if state == deferred:
+                fire(deferred, name)
+                last_fired = deferred
+                cooldown_until = now + args.cooldown
+            deferred = None
 
         time.sleep(args.poll)
 
