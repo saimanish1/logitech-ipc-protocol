@@ -24,7 +24,7 @@ import socket, struct, json, subprocess, sys, glob
 # They are discovered at runtime from GET /devices/list (see discover_devices).
 HOST_NAMES = {0: 'Windows', 1: 'Mac', 2: 'iPad'}
 # DDC/CI input source values per host. Find yours with ControlMyMonitor or m1ddc.
-MONITOR_INPUTS = {0: 15, 1: 18}  # host 0 -> DisplayPort (15), host 1 -> HDMI-2 (18)
+MONITOR_INPUTS = {0: 15, 1: 17}  # host 0 -> DisplayPort (15), host 1 -> HDMI-1 (17)
 M1DDC_PATH = '/opt/homebrew/bin/m1ddc'
 # --- End Configuration ---
 
