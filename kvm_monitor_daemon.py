@@ -132,9 +132,16 @@ def set_monitor(m1ddc, input_value, dry_run):
     if dry_run:
         log.info("[dry-run] would set monitor input %s", input_value)
         return
-    subprocess.run([m1ddc, "set", "input", str(input_value)],
-                   timeout=5, capture_output=True)
-    log.info("monitor -> input %s", input_value)
+    try:
+        r = subprocess.run([m1ddc, "set", "input", str(input_value)],
+                           timeout=5, capture_output=True, text=True)
+        if r.returncode != 0 or r.stderr.strip():
+            log.warning("m1ddc -> rc=%d out=%r err=%r", r.returncode,
+                        r.stdout.strip(), r.stderr.strip())
+        else:
+            log.info("monitor -> input %s", input_value)
+    except subprocess.TimeoutExpired:
+        log.warning("m1ddc timed out setting input %s — monitor busy or link down", input_value)
 
 
 # ---------- main loop ----------
@@ -148,6 +155,9 @@ def main():
     ap.add_argument("--poll", type=float, default=2.0, help="poll interval seconds")
     ap.add_argument("--debounce", type=int, default=2,
                     help="consecutive polls required to confirm a state change")
+    ap.add_argument("--settle", type=float, default=6.0,
+                    help="seconds to wait after a confirmed change before switching "
+                         "(host switches make the keyboard flap; state is re-verified)")
     ap.add_argument("--m1ddc", default="/opt/homebrew/bin/m1ddc")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
@@ -183,13 +193,28 @@ def main():
             else:
                 pending_count += 1
             if pending_count >= args.debounce:
-                state = here
                 pending, pending_count = None, 0
+                # Settle: host switches make the keyboard flap while BLE and
+                # the agent re-associate. Firing m1ddc during a flap drops
+                # commands on slow monitors (AW3225QF observed). Wait, then
+                # re-verify before touching the monitor.
+                log.info("state change (now %s) — settling %.0fs before switching",
+                         "HERE" if here else "AWAY", args.settle)
+                time.sleep(args.settle)
+                try:
+                    res2 = lead_keyboard_present(agent)
+                except ConnectionError as e:
+                    log.warning("agent unreachable during settle: %s", e)
+                    continue
+                if res2 is None or res2[0] != here:
+                    log.info("state flapped during settle — ignored, no monitor change")
+                    continue
+                state = here
                 if here:
-                    log.info("%s returned -> Mac", name)
+                    log.info("%s returned -> Mac", res2[1])
                     set_monitor(args.m1ddc, args.here_input, args.dry_run)
                 else:
-                    log.info("%s left -> away host", name)
+                    log.info("%s left -> away host", res2[1])
                     set_monitor(args.m1ddc, args.away_input, args.dry_run)
 
         time.sleep(args.poll)
