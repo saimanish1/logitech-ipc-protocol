@@ -5,7 +5,7 @@
 - [x] ~~Auto-discover device IDs by querying `/devices/list` instead of hardcoding~~ -- Done in `kvm_daemon_windows.py`
 - [ ] Filter devices that support ChangeHost (Easy-Switch capable only)
 - [ ] **BUG: hardcoded device IDs in `switch_to_windows.py` are stale after re-pairing.** Mouse is now `dev00000002` (`dev00000000` "MX Master 3S for Mac" is a disconnected old pairing). Script sends ChangeHost to dev00000000, gets NO_SUCH_PATH, and misreports it as "already on other host" — mouse never switches. Auto-discover IDs from `/devices/list` like `kvm_daemon_windows.py` does.
-- [ ] Replace trailing-silence recv loops with frame-exact reads (length-prefixed) matched by `msgId`, with an overall deadline. Live testing showed response latency varies 0.4s–2.7s (0.3–0.5s trailing timeout misses real responses) and responses can arrive OUT OF ORDER (observed r0, r2, r1).
+- [ ] Replace trailing-silence recv loops with frame-exact reads (length-prefixed) matched by `msgId`, with an overall deadline. Live testing showed response latency varies 0.4s–2.7s (0.3–0.5s trailing timeout misses real responses) and responses can arrive OUT OF ORDER (observed r0, r2, r1). **Done in `kvm_monitor_daemon.py`** (frame-exact `Agent` client); still pending in `switch_to_windows.py` / `query_agent_windows.py`.
 - [x] ~~Make monitor input values configurable (or skip monitor switching)~~ -- Done in `kvm_config.ini`
 - [ ] Support m1ddc on Intel Macs (different install path)
 - [ ] Add config file for Mac side (device IDs, monitor values, m1ddc path)
@@ -60,4 +60,4 @@ The original conclusion ("NOT POSSIBLE on current hardware") was correct at inve
 
 - [ ] Proper CLI arg parsing (argparse)
 - [ ] Brew formula or installer for Mac
-- [ ] LaunchAgent plist for auto-start on boot
+- [x] ~~LaunchAgent plist for auto-start on boot~~ -- Done: `com.logi.kvm-monitor.plist` template + README instructions
