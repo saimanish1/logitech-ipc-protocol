@@ -53,6 +53,30 @@ Requires Logi Options+ running. Install dependencies: `pip install pywin32`.
 
 The AHK script listens for Win+1/2/3 and calls `kvm_daemon_windows.py --switch N` for each. The Python script discovers devices from the agent automatically (no hardcoded device IDs or HID paths). Edit `kvm_config.ini` to configure hotkeys and monitor DDC/CI input values.
 
+## Monitor-follow daemon (native Enhanced Easy-Switch + DDC/CI)
+
+With Enhanced Easy-Switch (Logi Options+ v2.3+, MX Keys S firmware 81.2.17+),
+pressing the keyboard's physical Easy-Switch key moves keyboard and mouse
+between hosts natively. `kvm_monitor_daemon.py` completes the loop: it watches
+the lead keyboard's presence via the agent IPC and switches the monitor input
+(DDC/CI via m1ddc) — one physical key moves keyboard, mouse, AND monitor.
+
+```bash
+python3 kvm_monitor_daemon.py                 # foreground
+python3 kvm_monitor_daemon.py --dry-run       # log transitions only
+python3 kvm_monitor_daemon.py --here-input 17 --away-input 15
+```
+
+### Auto-start on boot (macOS LaunchAgent)
+
+```bash
+sed "s|__INSTALL_PATH__|$(pwd)|" com.logi.kvm-monitor.plist > ~/Library/LaunchAgents/com.logi.kvm-monitor.plist
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.logi.kvm-monitor.plist
+```
+
+Logs: `/tmp/kvm_monitor.log`. Stop with
+`launchctl bootout gui/$(id -u)/com.logi.kvm-monitor`.
+
 ## Protocol
 
 The agent listens on:
