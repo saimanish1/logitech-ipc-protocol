@@ -4,6 +4,8 @@
 
 - [x] ~~Auto-discover device IDs by querying `/devices/list` instead of hardcoding~~ -- Done in `kvm_daemon_windows.py`
 - [ ] Filter devices that support ChangeHost (Easy-Switch capable only)
+- [ ] **BUG: hardcoded device IDs in `switch_to_windows.py` are stale after re-pairing.** Mouse is now `dev00000002` (`dev00000000` "MX Master 3S for Mac" is a disconnected old pairing). Script sends ChangeHost to dev00000000, gets NO_SUCH_PATH, and misreports it as "already on other host" — mouse never switches. Auto-discover IDs from `/devices/list` like `kvm_daemon_windows.py` does.
+- [ ] Replace trailing-silence recv loops with frame-exact reads (length-prefixed) matched by `msgId`, with an overall deadline. Live testing showed response latency varies 0.4s–2.7s (0.3–0.5s trailing timeout misses real responses) and responses can arrive OUT OF ORDER (observed r0, r2, r1).
 - [x] ~~Make monitor input values configurable (or skip monitor switching)~~ -- Done in `kvm_config.ini`
 - [ ] Support m1ddc on Intel Macs (different install path)
 - [ ] Add config file for Mac side (device IDs, monitor values, m1ddc path)
@@ -29,6 +31,10 @@
 - [ ] Find the correct path pattern for device battery status
 - [ ] Try SET on `/v2/assignment` for pointer speed, DPI, backlight, smartshift
 - [ ] Probe `LogiPluginService` and `logitech_kiros_updater` pipes (different protocol from agent)
+- [ ] **Document the connection greeting.** The agent pushes one binary `protobuf` Envelope frame unsolicited ~90ms after every connection (once per connection, byte-identical every time): field2=7 (varint), field3="/", field4="backend". Not a response — a server announcement. Use it as the handshake/liveness signal in clients instead of a dummy `GET /permissions`.
+- [ ] **Binary protobuf envelope probe.** The greeting's proto tag is `"protobuf"`, so the socket natively speaks binary protobuf, not just JSON. Construct a raw binary Envelope (msgId field 1, verb field 2, path field 3) and fuzz the verb enum (values 0–10) with read-only `GET /permissions`. If accepted, clients can skip the strict `@type` JSON encoding entirely.
+- [ ] **MITM the Electron UI startup sequence.** Capture what the UI sends in response to the connection greeting *before* its first request. If there's a client-registration step tied to the greeting, it may be the missing piece that makes SUBSCRIBE actually deliver events (host changes, battery, connect/disconnect) — would enable a reactive KVM daemon instead of one-shot scripts.
+- [ ] Battery status: `batteryDischargeLevel` already exists per-device in the `/devices/list` payload (plus `hasBatteryStatus`/`unifiedBattery` capability flags), but reads 0 for connected devices — investigate when it refreshes and whether a GET can trigger an update.
 - [ ] Test SUBSCRIBE with a long-lived connection to see if events arrive asynchronously
 
 ## Coupled Easy-Switch
