@@ -13,6 +13,8 @@ macOS blocks raw HID access to Bluetooth input devices at the kernel level. No p
 | File | Description |
 |------|-------------|
 | `logi-options-ipc-reverse-engineering.md` | Full reverse engineering chronicle |
+| `optionsplus-2.7-ipc-security.md` | v2.7 named-pipe security check: analysis + CDP relay bypass |
+| `agent_cdp_client.py` | Windows transport for v2.7+: agent IPC via the UI's renderer relay (CDP) — see the doc above |
 | `software-kvm-setup.md` | Two-way software KVM setup guide (Windows + Mac) |
 | `switch_to_windows.py` | Mac-side script that switches Logitech devices and monitor input via Unix socket IPC |
 | `api-reference.md` | Agent API reference: working endpoints, protobuf types, device capabilities |
@@ -155,8 +157,26 @@ Read: response byte 4 = feature index
 |---------|--------|
 | Logi Options+ 2.0.840907 | Working (macOS Tahoe, Windows 11) |
 | Logi Options+ 2.6.944893 | Working; coupled Easy-Switch routes live — Enhanced Easy-Switch shipped (see api-reference.md) |
+| Logi Options+ 2.7.961922 | **Direct pipe/socket IPC blocked** — agent verifies the client binary is Logitech-signed and closes other connections instantly. Bypassed via the UI's renderer relay: `agent_cdp_client.py` (Windows). See `optionsplus-2.7-ipc-security.md` |
 
 The wire protocol and core API paths (`/devices/list`, `/change_host/<id>/host`) have been stable. Device re-pairing broke HID paths and collection numbers but the IPC protocol itself was unaffected.
+
+## v2.7 and later (Windows)
+
+The agent now runs a client security check on its named pipe (PID → image path →
+Authenticode → Logitech publisher pinning) and closes any non-Logitech client
+before the wire protocol even starts. `kvm_daemon_windows.py` and
+`query_agent_windows.py` (direct pipe clients) are **broken on 2.7+**.
+
+`agent_cdp_client.py` restores full API access by driving the Options+ UI's
+built-in agent relay over Chrome DevTools Protocol. Requirement: the UI must run
+with `--remote-debugging-port=9222`:
+
+```powershell
+"C:\Program Files\LogiOptionsPlus\logioptionsplus.exe" --remote-debugging-port=9222
+python agent_cdp_client.py --list
+python agent_cdp_client.py --switch 1
+```
 
 ## Disclaimer
 
