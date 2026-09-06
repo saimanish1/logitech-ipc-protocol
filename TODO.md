@@ -7,6 +7,8 @@
 - [x] ~~Identify port 59869~~ — `logitech_marconi` Flow tunnels (TLS, ClientHello/ServerHello), not a local API. Dead end for IPC.
 - [x] ~~ELECTRON_RUN_AS_NODE route~~ — neutralized in the custom Electron build (no fuse wire in binary).
 - [x] ~~Find and verify the bypass~~ — UI's own renderer relay (`electronNet` preload bridge → main-process agent socket) driven via `--remote-debugging-port` + CDP. `GET`/`SET` verified, real KVM switch to host 1 performed successfully. Client: `agent_cdp_client.py`.
+- [x] ~~Restore the one-button loop on Windows~~ — `kvm_monitor_daemon_windows.py` (presence polling via CDP relay + ControlMyMonitor). Verified live: Easy-Switch press moves devices and monitor follows in both directions.
+- [x] ~~Survive UI restarts~~ — daemon detects relay loss and relaunches the UI with `--remote-debugging-port` automatically.
 - [ ] Test macOS 2.7: does the Unix socket have the same client check? If yes, port the CDP relay approach (Mac UI is the same Electron app).
 - [ ] Make the UI always start with `--remote-debugging-port=9222` (shortcut/Run-key edit) so the bypass survives reboots; note the security trade-off in README (any local process can drive the UI via CDP).
 - [ ] Migrate `kvm_daemon_windows.py` to the `AgentViaUI` transport (hotkey daemon on top of CDP relay) — or retire it in favor of `agent_cdp_client.py --switch` behind AHK.

@@ -15,6 +15,7 @@ macOS blocks raw HID access to Bluetooth input devices at the kernel level. No p
 | `logi-options-ipc-reverse-engineering.md` | Full reverse engineering chronicle |
 | `optionsplus-2.7-ipc-security.md` | v2.7 named-pipe security check: analysis + CDP relay bypass |
 | `agent_cdp_client.py` | Windows transport for v2.7+: agent IPC via the UI's renderer relay (CDP) — see the doc above |
+| `kvm_monitor_daemon_windows.py` | Windows monitor-follow daemon: CDP relay presence polling + ControlMyMonitor DDC/CI; auto-relaunches the UI with the debug flag if needed |
 | `software-kvm-setup.md` | Two-way software KVM setup guide (Windows + Mac) |
 | `switch_to_windows.py` | Mac-side script that switches Logitech devices and monitor input via Unix socket IPC |
 | `api-reference.md` | Agent API reference: working endpoints, protobuf types, device capabilities |
@@ -177,6 +178,18 @@ with `--remote-debugging-port=9222`:
 python agent_cdp_client.py --list
 python agent_cdp_client.py --switch 1
 ```
+
+The one-button loop on Windows (Easy-Switch moves devices natively, daemon
+follows with the monitor):
+
+```powershell
+python kvm_monitor_daemon_windows.py            # foreground
+python kvm_monitor_daemon_windows.py --dry-run
+```
+
+Requires `dependencies\ControlMyMonitor.exe` (NirSoft, see kvm_config.ini for
+the download link). The daemon relaunches the UI with the debug flag
+automatically if the relay is down.
 
 ## Disclaimer
 
