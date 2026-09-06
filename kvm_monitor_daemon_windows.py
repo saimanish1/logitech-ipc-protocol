@@ -23,17 +23,32 @@ Usage:
     python kvm_monitor_daemon_windows.py --here-input 15 --away-input 17
 """
 import argparse
+import ctypes
 import logging
+import os
 import subprocess
 import sys
 import time
 
 from agent_cdp_client import AgentViaUI, CDPError
 
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+LOG_FILE = os.path.join(os.environ.get("TEMP", SCRIPT_DIR), "kvm_monitor_windows.log")
+MUTEX_NAME = "KvmMonitorDaemonWindows_SingleInstance"
+
 logging.basicConfig(level=logging.INFO,
                     format="%(asctime)s [%(levelname)s] %(message)s",
                     datefmt="%H:%M:%S")
 log = logging.getLogger("kvm-monitor-win")
+logging.getLogger().addHandler(logging.FileHandler(LOG_FILE))  # always log to file (pythonw has no console)
+
+
+def ensure_single_instance():
+    mutex = ctypes.windll.kernel32.CreateMutexW(None, False, MUTEX_NAME)
+    if ctypes.windll.kernel32.GetLastError() == 183:  # ERROR_ALREADY_EXISTS
+        log.error("another instance is already running - exiting")
+        sys.exit(1)
+    return mutex
 
 UI_EXE = r"C:\Program Files\LogiOptionsPlus\logioptionsplus.exe"
 UI_ARGS = ["--remote-debugging-port=9222"]
@@ -107,7 +122,7 @@ def main():
                     help="consecutive polls required to confirm a state change")
     ap.add_argument("--cooldown", type=float, default=8.0,
                     help="seconds after a switch during which further changes are deferred")
-    ap.add_argument("--clickmon", default=r"dependencies\ControlMyMonitor.exe")
+    ap.add_argument("--clickmon", default=os.path.join(SCRIPT_DIR, "dependencies", "ControlMyMonitor.exe"))
     ap.add_argument("--no-auto-relaunch", action="store_true",
                     help="do not relaunch the UI with the debugging flag when the relay is down")
     ap.add_argument("--dry-run", action="store_true")
@@ -132,12 +147,15 @@ def main():
 
     log.info("watching for lead keyboard (poll %.1fs, cooldown %.0fs, %s)",
              args.poll, args.cooldown, "DRY RUN" if args.dry_run else "live")
+    ensure_single_instance()
     while True:
         try:
             if agent is None:
                 agent = connect_agent(not args.no_auto_relaunch, failures)
+                if failures:
+                    log.info("relay reconnected after %d failure(s)", failures)
+                failures = 0
             res = lead_keyboard_present(agent)
-            failures = 0
         except (CDPError, OSError) as e:
             failures += 1
             agent = None
