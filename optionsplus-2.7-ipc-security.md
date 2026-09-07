@@ -129,6 +129,29 @@ python agent_cdp_client.py --switch 1      # everyone to host 1
    applies (`--remote-debugging-port` + the Mac UI's own agent bridge), but the Unix
    socket may also still be ungated. Verify before migrating.
 
+### Hibernate / fast-startup resume wedges the agent (observed once)
+
+A "restart" that is actually a Windows fast-startup shutdown or hibernate-resume
+does NOT restart user processes — they come back with their original start times.
+The stale agent survives but is wedged: its device connections are dead, and a
+freshly launched UI hangs forever on its splash at **"Getting resources"**
+("Getting resources error" + TROUBLESHOOT button).
+
+Diagnosis: `Get-Process logioptionsplus_agent` shows a `StartTime` older than the
+resume → stale process. The monitor daemon cannot fix this class of failure — its
+self-healing covers the UI/relay only; the agent pipe itself is up but comatose.
+
+Fix (clean Logi stack restart, in order):
+
+```powershell
+Get-Process logioptionsplus* | Where-Object Name -ne 'logioptionsplus_updater' | Stop-Process -Force
+Start-Process "C:\Program Files\LogiOptionsPlus\logioptionsplus_agent.exe"
+Start-Sleep 8   # wait for the pipe
+Start-Process "C:\Program Files\LogiOptionsPlus\logioptionsplus.exe" --remote-debugging-port=9222
+```
+
+The updater runs elevated and cannot (and need not) be killed.
+
 ## Why this works (threat-model view)
 
 Logi hardened the **transport** (who may hold a pipe handle) but left the UI's
